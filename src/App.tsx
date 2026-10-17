@@ -17,7 +17,6 @@ import { CartDrawer } from './components/CartDrawer';
 import { GuideReviewModal } from './components/GuideReviewModal';
 import { AuthScreen } from './components/AuthScreen';
 import { PurchaseHistory } from './components/PurchaseHistory';
-import { MvcRouteInspectorModal } from './components/MvcRouteInspectorModal';
 import { 
   TabType, 
   InventoryItem, 
@@ -105,12 +104,21 @@ export default function App() {
   });
 
   const [selectedDistrict, setSelectedDistrict] = useState('Dharwad');
-  const [weather, setWeather] = useState<{ temp: number; condition: string; humidity: number; wind?: string; rainfall?: number } | null>({
+  const [weather, setWeather] = useState<{ 
+    temp: number; 
+    condition: string; 
+    humidity: number; 
+    wind?: string; 
+    rainfall?: number;
+    soilMoisture?: string;
+    weeklyForecast?: any[];
+  } | null>({
     temp: 28,
     condition: 'Partly Cloudy',
     humidity: 66,
     wind: '14 km/h',
-    rainfall: 4.2
+    rainfall: 4.2,
+    soilMoisture: 'Good (64%)'
   });
 
   // User state from Firebase Auth
@@ -127,7 +135,6 @@ export default function App() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
-  const [isMvcInspectorOpen, setIsMvcInspectorOpen] = useState(false);
 
   // Authentication Stage toggle (Separate stage for Login & Sign Up)
   const [showAuthStage, setShowAuthStage] = useState(false);
@@ -834,7 +841,6 @@ export default function App() {
         onToggleUserRole={handleToggleUserRole}
         onOpenAuthScreen={() => setShowAuthStage(true)}
         onSignOut={handleSignOut}
-        onOpenMvcInspector={() => setIsMvcInspectorOpen(true)}
       />
 
       {/* Main Tab Content */}
@@ -886,6 +892,8 @@ export default function App() {
             onNavigateTab={handleNavigateTab}
             onOpenGuideModal={() => setIsGuideModalOpen(true)}
             onOpenNotifications={() => setIsNotificationsOpen(true)}
+            onAddTask={(task) => handleUpdateTasks([task, ...tasks])}
+            onDispatchNotification={(notif) => setNotifications(prev => [notif, ...prev])}
           />
         )}
 
@@ -965,14 +973,6 @@ export default function App() {
         onNavigateTab={handleNavigateTab}
       />
 
-      {/* MERN & SQLite MVC Architecture Inspector Modal */}
-      <MvcRouteInspectorModal
-        isOpen={isMvcInspectorOpen}
-        onClose={() => setIsMvcInspectorOpen(false)}
-        currentTab={currentTab}
-        onNavigateTab={handleNavigateTab}
-      />
-
       {/* Footer */}
       <footer className="bg-white border-t border-stone-200 mt-12 py-6 text-stone-500 text-xs text-center">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -980,16 +980,8 @@ export default function App() {
             <span className="font-extrabold text-stone-900">NammaKrushi (ನಮ್ಮ ಕೃಷಿ)</span>
             <span>• Direct Farm-to-Consumer & Smart Agriculture Platform</span>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-stone-400">
-              Empowering Karnataka Farmers with Direct Consumer Sales, Valid Payment Gateway & 1-Click Reorders
-            </span>
-            <button
-              onClick={() => setIsMvcInspectorOpen(true)}
-              className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[11px] transition cursor-pointer whitespace-nowrap"
-            >
-              ⚙️ SQLite MVC & Routes
-            </button>
+          <div className="text-stone-400">
+            Empowering Karnataka Farmers with Direct Consumer Sales, Valid Payment Gateway & 1-Click Reorders
           </div>
         </div>
       </footer>

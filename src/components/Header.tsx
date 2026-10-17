@@ -29,7 +29,6 @@ interface HeaderProps {
   onToggleUserRole?: () => void;
   onOpenAuthScreen: () => void;
   onSignOut: () => void;
-  onOpenMvcInspector?: () => void;
 }
 
 export const DISTRICTS = [
@@ -58,7 +57,6 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleUserRole,
   onOpenAuthScreen,
   onSignOut,
-  onOpenMvcInspector,
 }) => {
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -156,18 +154,6 @@ export const Header: React.FC<HeaderProps> = ({
                 title={userRole === 'consumer' ? 'Switch to Farmer View' : 'Switch to Consumer View'}
               >
                 <span>{userRole === 'consumer' ? '🌾 Farmer View' : '🛒 Consumer Mode'}</span>
-              </button>
-            )}
-
-            {/* MERN & SQLite MVC Inspector Button */}
-            {onOpenMvcInspector && (
-              <button
-                onClick={onOpenMvcInspector}
-                className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition cursor-pointer shadow-xs"
-                title="Inspect MERN Stack, SQLite Tables, and Browser Routes"
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-                <span>SQLite MVC</span>
               </button>
             )}
 

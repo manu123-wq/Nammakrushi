@@ -79,6 +79,7 @@ export interface FarmTask {
   status: 'Pending' | 'Completed';
   fieldSector: string;
   assignedTo?: string;
+  notes?: string;
 }
 
 export interface NotificationItem {

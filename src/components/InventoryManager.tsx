@@ -11,9 +11,14 @@ import {
   Sparkles, 
   Store, 
   ShieldCheck,
-  Filter
+  Filter,
+  Download,
+  FileSpreadsheet,
+  Check
 } from 'lucide-react';
 import { InventoryItem, TabType } from '../types';
+import { exportInventoryToCsv } from '../utils/csvExport';
+import { playNotificationChime } from '../utils/audio';
 
 interface InventoryManagerProps {
   inventory: InventoryItem[];
@@ -43,6 +48,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   const [costPerUnit, setCostPerUnit] = useState<number>(450);
   const [location, setLocation] = useState('Warehouse Shed A');
   const [notes, setNotes] = useState('');
+  const [exportSuccessToast, setExportSuccessToast] = useState<string | null>(null);
+
+  const handleExportCsv = () => {
+    exportInventoryToCsv(inventory, 'Registered Farmer', 'Dharwad, Karnataka');
+    playNotificationChime();
+    setExportSuccessToast('Exported inventory ledger to CSV!');
+    setTimeout(() => setExportSuccessToast(null), 3500);
+  };
 
   const categories = ['All', 'Fertilizers', 'Seeds', 'Pesticides', 'Tools & Equipment', 'Harvested Produce'];
 
@@ -131,13 +144,23 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           {lowStockCount > 0 && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold animate-pulse">
               <AlertTriangle className="w-4 h-4" />
               <span>{lowStockCount} Low Stock Item{lowStockCount > 1 ? 's' : ''}</span>
             </div>
           )}
+
+          <button
+            onClick={handleExportCsv}
+            className="flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer shadow-2xs"
+            title="Export complete inventory ledger as CSV for tax compliance & record-keeping"
+          >
+            <Download className="w-4 h-4 text-emerald-700" />
+            <span>Export CSV</span>
+          </button>
+
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition shadow-xs cursor-pointer"
@@ -147,6 +170,19 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Export Success Toast */}
+      {exportSuccessToast && (
+        <div className="p-3 bg-emerald-50 text-emerald-900 border border-emerald-300 rounded-xl text-xs font-bold flex items-center justify-between animate-fade-in shadow-xs">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600" />
+            <span>{exportSuccessToast} Download started automatically.</span>
+          </div>
+          <span className="text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+            UTF-8 Excel Ready
+          </span>
+        </div>
+      )}
 
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">

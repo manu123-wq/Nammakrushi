@@ -8,10 +8,13 @@ import {
   Send, 
   Trash2, 
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  Download,
+  Check
 } from 'lucide-react';
 import { FarmTask } from '../types';
 import { playNotificationChime } from '../utils/audio';
+import { exportTasksToCsv } from '../utils/csvExport';
 
 interface TaskTrackerProps {
   tasks: FarmTask[];
@@ -34,8 +37,16 @@ export const TaskTracker: React.FC<TaskTrackerProps> = ({
   const [priority, setPriority] = useState<FarmTask['priority']>('High');
   const [sector, setSector] = useState('Sector A (Cotton Plot)');
   const [assignedTo, setAssignedTo] = useState('Manish S.B.');
+  const [exportSuccessToast, setExportSuccessToast] = useState<string | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
+
+  const handleExportCsv = () => {
+    exportTasksToCsv(tasks, 'Registered Farmer', 'Dharwad, Karnataka');
+    playNotificationChime();
+    setExportSuccessToast('Exported field task operations log to CSV!');
+    setTimeout(() => setExportSuccessToast(null), 3500);
+  };
 
   const handleToggleStatus = (id: string) => {
     const updated = tasks.map(t => {
@@ -120,14 +131,23 @@ export const TaskTracker: React.FC<TaskTrackerProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={handleExportCsv}
+            className="flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer shadow-2xs"
+            title="Export complete farm task logs as CSV for labor records and compliance"
+          >
+            <Download className="w-4 h-4 text-emerald-700" />
+            <span>Export CSV</span>
+          </button>
+
           <button
             onClick={handleTriggerAllDueReminders}
             className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer"
             title="Scan and send notifications for tasks due today"
           >
             <Send className="w-4 h-4 text-amber-700" />
-            <span>Send Today's Task Reminders ({dueTodayCount})</span>
+            <span>Send Reminders ({dueTodayCount})</span>
           </button>
 
           <button
@@ -139,6 +159,19 @@ export const TaskTracker: React.FC<TaskTrackerProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Export Success Toast */}
+      {exportSuccessToast && (
+        <div className="p-3 bg-emerald-50 text-emerald-900 border border-emerald-300 rounded-xl text-xs font-bold flex items-center justify-between animate-fade-in shadow-xs">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600" />
+            <span>{exportSuccessToast} Download started automatically.</span>
+          </div>
+          <span className="text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+            UTF-8 Excel Ready
+          </span>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="flex gap-2 border-b border-stone-200 pb-2 text-xs font-semibold">

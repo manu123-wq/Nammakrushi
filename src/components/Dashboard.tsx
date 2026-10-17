@@ -15,21 +15,29 @@ import {
   Wind,
   CloudRain,
   Flame,
-  BellRing
+  BellRing,
+  Download,
+  FileSpreadsheet,
+  Check
 } from 'lucide-react';
 import { TabType, InventoryItem, FarmTask, NotificationItem } from '../types';
 import { WeatherTrendChart } from './WeatherTrendChart';
+import { SmartIrrigationScheduler } from './SmartIrrigationScheduler';
+import { exportCombinedFarmAuditCsv, exportInventoryToCsv, exportTasksToCsv } from '../utils/csvExport';
+import { playNotificationChime } from '../utils/audio';
 
 interface DashboardProps {
   district: string;
   onDistrictChange?: (district: string) => void;
-  weather: { temp: number; condition: string; humidity: number; rainfall?: number; wind?: string; soilMoisture?: string } | null;
+  weather: { temp: number; condition: string; humidity: number; rainfall?: number; wind?: string; soilMoisture?: string; weeklyForecast?: any[] } | null;
   inventory: InventoryItem[];
   tasks: FarmTask[];
   notifications: NotificationItem[];
   onNavigateTab: (tab: TabType) => void;
   onOpenGuideModal: () => void;
   onOpenNotifications: () => void;
+  onAddTask?: (task: FarmTask) => void;
+  onDispatchNotification?: (notif: NotificationItem) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -41,8 +49,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
   notifications,
   onNavigateTab,
   onOpenGuideModal,
-  onOpenNotifications
+  onOpenNotifications,
+  onAddTask,
+  onDispatchNotification
 }) => {
+  const [showExportMenu, setShowExportMenu] = React.useState(false);
+  const [exportToast, setExportToast] = React.useState<string | null>(null);
+
+  const handleExport = (type: 'combined' | 'inventory' | 'tasks') => {
+    setShowExportMenu(false);
+    playNotificationChime();
+    if (type === 'combined') {
+      exportCombinedFarmAuditCsv(inventory, tasks, 'Registered Farmer', district);
+      setExportToast('Downloaded Combined Farm Audit & Tax Compliance CSV (Sec 10(1))!');
+    } else if (type === 'inventory') {
+      exportInventoryToCsv(inventory, 'Registered Farmer', district);
+      setExportToast('Downloaded Farm Inventory Ledger CSV!');
+    } else {
+      exportTasksToCsv(tasks, 'Registered Farmer', district);
+      setExportToast('Downloaded Field Operations & Tasks Log CSV!');
+    }
+    setTimeout(() => setExportToast(null), 3500);
+  };
+
   const today = new Date().toISOString().split('T')[0];
   const pendingTasksToday = tasks.filter(t => t.status === 'Pending' && t.dueDate === today);
   const lowStockItems = inventory.filter(i => i.quantity <= i.minThreshold);
@@ -154,12 +183,75 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <TrendingUp className="w-4 h-4 text-emerald-300" />
               <span>Explore Marketplace</span>
             </button>
+
+            {/* Export Farm Records Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="bg-emerald-800/90 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center gap-2 cursor-pointer border border-emerald-400/40 shadow-xs"
+                title="Export inventory and task records as CSV for tax compliance and CA audits"
+              >
+                <Download className="w-4 h-4 text-emerald-200" />
+                <span>Export Farm Records (CSV)</span>
+              </button>
+
+              {showExportMenu && (
+                <div className="absolute left-0 sm:right-0 sm:left-auto mt-2 w-72 bg-white text-stone-900 rounded-2xl shadow-xl border border-stone-200 py-2 z-30 animate-fade-in text-xs">
+                  <div className="px-3 py-1.5 border-b border-stone-100 text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+                    Download Agricultural CSV Logs
+                  </div>
+                  <button
+                    onClick={() => handleExport('combined')}
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-emerald-50 text-stone-800 flex items-start gap-2.5 transition cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block text-stone-900 font-bold">Combined Audit & Tax Report</strong>
+                      <span className="text-[10px] text-stone-500">Inventory assets + task log (Sec 10(1) Tax ready)</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleExport('inventory')}
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-emerald-50 text-stone-800 flex items-start gap-2.5 transition cursor-pointer"
+                  >
+                    <Package className="w-4 h-4 text-sky-700 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block text-stone-900 font-bold">Farm Inventory Ledger</strong>
+                      <span className="text-[10px] text-stone-500">Stock counts, valuations, and input costs</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleExport('tasks')}
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-emerald-50 text-stone-800 flex items-start gap-2.5 transition cursor-pointer"
+                  >
+                    <Calendar className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block text-stone-900 font-bold">Field Tasks Operations Log</strong>
+                      <span className="text-[10px] text-stone-500">Labor schedules, irrigation, and spray dates</span>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Decorative background circle */}
         <div className="absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-emerald-500/10 pointer-events-none blur-2xl" />
       </div>
+
+      {/* Export Toast Banner */}
+      {exportToast && (
+        <div className="p-3 bg-emerald-50 text-emerald-950 border border-emerald-300 rounded-2xl text-xs font-bold flex items-center justify-between animate-fade-in shadow-xs">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-700" />
+            <span>{exportToast} CSV download initiated automatically.</span>
+          </div>
+          <span className="text-[10px] bg-white px-2 py-0.5 rounded text-emerald-800 border border-emerald-200">
+            Compliant with Section 10(1)
+          </span>
+        </div>
+      )}
 
       {/* 4 Quick Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -262,6 +354,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <WeatherTrendChart 
         selectedDistrict={district} 
         onDistrictChange={onDistrictChange} 
+      />
+
+      {/* Smart Irrigation Scheduler (Weather API & Soil Moisture Driven) */}
+      <SmartIrrigationScheduler
+        district={district}
+        weather={weather}
+        onAddTask={onAddTask}
+        onDispatchNotification={onDispatchNotification}
+        onNavigateTab={onNavigateTab}
       />
 
       {/* Main Grid: Weather + Today's Schedule & Low Stock Alerts */}
