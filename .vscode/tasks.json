@@ -1,0 +1,37 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "dev",
+      "problemMatcher": [],
+      "label": "npm: dev (Run Full-Stack App)",
+      "detail": "Runs Vite + Node.js SQLite MVC dev server on port 3000",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "type": "npm",
+      "script": "build",
+      "problemMatcher": ["$tsc"],
+      "label": "npm: build",
+      "detail": "Compiles TypeScript and creates optimized production bundle"
+    },
+    {
+      "type": "npm",
+      "script": "start",
+      "problemMatcher": [],
+      "label": "npm: start (Express Server)",
+      "detail": "Runs standalone Express server with SQLite and dist bundle"
+    },
+    {
+      "type": "shell",
+      "command": "python -m backend.app",
+      "problemMatcher": [],
+      "label": "python: run SQLAlchemy backend",
+      "detail": "Runs the Python Flask + SQLAlchemy backend on port 5000"
+    }
+  ]
+}

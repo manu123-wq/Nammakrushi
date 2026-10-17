@@ -1,0 +1,37 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "🚀 Run Full-Stack MERN App (Node.js + React + SQLite)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "PORT": "3000"
+      }
+    },
+    {
+      "name": "🌾 Run Express Server (Production tsx)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "PORT": "3000"
+      }
+    },
+    {
+      "name": "🐍 Run Python SQLAlchemy Backend",
+      "type": "python",
+      "request": "launch",
+      "module": "backend.app",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

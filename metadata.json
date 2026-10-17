@@ -1,0 +1,6 @@
+{
+  "name": "NammaKrushi - AI Farm Management & Marketplace",
+  "description": "Comprehensive climate-smart farm management and marketplace platform featuring Gemini AI farming assistant, crop predictions, inventory control, and notifications.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Farmer or buyer profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "farmDistrict": { "type": "string" },
+        "farmAreaAcres": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email"]
+    },
+    "FarmTask": {
+      "title": "FarmTask",
+      "description": "Scheduled farm operation task",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "priority": { "type": "string", "enum": ["High", "Medium", "Low"] },
+        "status": { "type": "string", "enum": ["Pending", "Completed"] },
+        "fieldSector": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "dueDate", "status"]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "description": "Tracked seed, fertilizer, produce or tool",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string" },
+        "minThreshold": { "type": "number" },
+        "costPerUnit": { "type": "number" },
+        "location": { "type": "string" },
+        "lastUpdated": { "type": "string" }
+      },
+      "required": ["id", "userId", "name", "category", "quantity", "unit"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Marketplace purchase order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "paymentMode": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "totalAmount"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Private user profile"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "FarmTask",
+      "description": "User specific farm tasks"
+    },
+    "/users/{userId}/inventory/{itemId}": {
+      "schema": "InventoryItem",
+      "description": "User specific inventory items"
+    },
+    "/users/{userId}/orders/{orderId}": {
+      "schema": "Order",
+      "description": "User order records"
+    }
+  }
+}
