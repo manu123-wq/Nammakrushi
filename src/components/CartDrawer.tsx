@@ -44,7 +44,7 @@ interface CartDrawerProps {
     transactionId?: string;
     consumerDetails?: any;
   }) => void;
-  onNavigateTracking?: () => void;
+  onNavigateTracking?: (orderId?: string) => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -108,8 +108,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   if (!isOpen) return null;
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const deliveryFee = deliveryMode === 'doorstep' ? (subtotal > 0 ? 250 : 0) : 0;
+  const deliveryFee = deliveryMode === 'doorstep' ? (subtotal > 0 ? (subtotal >= 500 ? 0 : 40) : 0) : 0;
   const grandTotal = subtotal + deliveryFee;
+
+  // Multi-farmer detection
+  const distinctFarmers = Array.from(new Set(cart.map(i => i.product.farmerName || 'Registered Grower')));
+  const isMultiFarmerCart = distinctFarmers.length > 1;
 
   // Luhn algorithm validator for Card Gateway
   const validateLuhn = (num: string): boolean => {
@@ -200,12 +204,36 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     executeFinalPayment();
   };
 
-  const executeFinalPayment = () => {
+  const executeFinalPayment = async () => {
     setProcessing(true);
     setShowOtpModal(false);
 
-    setTimeout(() => {
-      const orderNumber = `NK-${Math.floor(1000 + Math.random() * 9000)}`;
+    try {
+      const token = localStorage.getItem('nammakrushi_auth_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/orders/checkout', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          items: cart,
+          paymentMode,
+          consumerName,
+          consumerPhone,
+          deliveryAddress: deliveryMode === 'doorstep' ? `${deliveryAddress}, PIN: ${pinCode}` : 'Direct Farmgate Pickup',
+          deliveryMode,
+          deliveryCharge: deliveryFee,
+          total: grandTotal
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to submit order to farm marketplace.');
+      }
+
+      const orderNumber = data.orderId || `NK-${Math.floor(1000 + Math.random() * 9000)}`;
       let txnId = `TXN_UPI_${Date.now().toString().slice(-8)}_SBI`;
       let paymentLabel = 'UPI (Instant Escrow)';
 
@@ -217,8 +245,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         txnId = `TXN_NB_${selectedBank}_${Date.now().toString().slice(-8)}`;
         paymentLabel = `NetBanking (${selectedBank})`;
       } else if (paymentMode === 'cod') {
-        txnId = `TXN_COD_${Date.now().toString().slice(-6)}_VERIFIED`;
-        paymentLabel = 'Cash on Delivery / Mandi Pay';
+        txnId = `COD-${orderNumber}`;
+        paymentLabel = 'Cash on Delivery (Mandi Pay)';
       }
 
       const orderData = {
@@ -227,10 +255,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         items: [...cart],
         total: grandTotal,
         paymentMode: paymentLabel,
+        isMultiFarmer: data.isMultiFarmer,
+        childOrders: data.childOrders,
         consumerDetails: {
           name: consumerName,
           phone: consumerPhone,
-          address: deliveryMode === 'doorstep' ? deliveryAddress : 'Direct Farmgate Pickup',
+          address: deliveryMode === 'doorstep' ? `${deliveryAddress}, PIN: ${pinCode}` : 'Direct Farmgate Pickup',
           pinCode,
           deliveryMode
         }
@@ -241,7 +271,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       playNotificationChime();
 
       onCheckoutComplete(orderData);
-    }, 1200);
+    } catch (err: any) {
+      console.error('Checkout error:', err);
+      alert(err.message || 'Error communicating with order payment server.');
+      setProcessing(false);
+    }
   };
 
   const handleCopyUpi = () => {
@@ -373,8 +407,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               {onNavigateTracking && (
                 <button
                   onClick={() => {
+                    const oId = confirmedOrder?.orderId;
                     handleResetAndClose();
-                    onNavigateTracking();
+                    onNavigateTracking(oId);
                   }}
                   className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
                 >
@@ -402,7 +437,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       Your cart is empty. Add farm produce from the Marketplace.
                     </div>
                   ) : (
-                    cart.map((item) => (
+                    <>
+                      {isMultiFarmerCart && (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-950 flex items-start gap-2.5">
+                          <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-bold">Multi-Farmer Basket ({distinctFarmers.length} Local Growers):</span>
+                            <p className="text-[11px] text-emerald-800 mt-0.5">
+                              Items will be fulfilled by {distinctFarmers.join(' and ')} in separate direct farmgate packages.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      {cart.map((item) => (
                       <div
                         key={item.product.id}
                         className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-200 rounded-xl"
@@ -473,7 +520,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
-                    ))
+                    ))}
+                    </>
                   )}
                 </div>
 

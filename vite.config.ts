@@ -2,7 +2,6 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig, Plugin } from 'vite';
-import { handleApiRequest } from './src/server/api.ts';
 
 function nammaKrushiApiPlugin(): Plugin {
   return {
@@ -10,6 +9,7 @@ function nammaKrushiApiPlugin(): Plugin {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         if (req.url && req.url.startsWith('/api/')) {
+          const { handleApiRequest } = await import('./src/server/api.ts');
           const handled = await handleApiRequest(req, res);
           if (handled) return;
         }
@@ -24,7 +24,7 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss(), nammaKrushiApiPlugin()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname || '.', '.'),
       },
     },
     server: {

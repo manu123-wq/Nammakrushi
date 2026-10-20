@@ -1,4 +1,4 @@
-import { InventoryItem, FarmTask, NotificationItem, MarketplaceProduct, MarketRate } from '../types';
+import { InventoryItem, FarmTask, NotificationItem, MarketplaceProduct, MarketRate } from '../types/index.ts';
 
 export const INITIAL_INVENTORY: InventoryItem[] = [
   {
@@ -445,6 +445,64 @@ export const INITIAL_PRODUCTS: MarketplaceProduct[] = [
         rating: 5,
         comment: 'Remarkable aroma and laboratory-tested purity. Direct delivery in moisture-proof gunny bags.',
         date: '4 days ago',
+        verifiedDelivery: true
+      }
+    ]
+  },
+  {
+    id: 'prod-10',
+    title: 'Fresh Farm Bhagawa Pomegranates (GI Tagged)',
+    category: 'Fruits',
+    price: 130,
+    unit: 'kg',
+    availableStock: 800,
+    farmerName: 'Basavaraj Patil (Organic Malaprabha)',
+    farmerLocation: 'Bailhongal, Belagavi',
+    farmerPhone: '9845123456',
+    isVerified: true,
+    imageUrl: 'https://images.unsplash.com/photo-1541344999736-83eca872f240?auto=format&fit=crop&w=600&q=80',
+    description: 'Juicy ruby-red Bhagawa variety pomegranates plucked directly from the orchard. Rich in antioxidants and naturally sweet.',
+    qualityGrade: 'Grade A (Export Quality)',
+    rating: 4.9,
+    reviewCount: 24,
+    isFarmerProduce: true,
+    harvestDate: 'Picked 2 days ago',
+    reviews: [
+      {
+        id: 'rev-11',
+        consumerName: 'Naveen Kumar (Hubballi)',
+        rating: 5,
+        comment: 'Extremely sweet with soft seeds. Freshness was evident on opening the farm crate.',
+        date: '3 days ago',
+        verifiedDelivery: true
+      }
+    ]
+  },
+  {
+    id: 'prod-11',
+    title: 'Organic Robusta Farm Bananas (Tree Ripened)',
+    category: 'Fruits',
+    price: 40,
+    unit: 'kg',
+    availableStock: 650,
+    farmerName: 'Manish S.B. (Raitha Bandhu)',
+    farmerLocation: 'Navalgund, Dharwad',
+    farmerPhone: '9876543210',
+    isVerified: true,
+    imageUrl: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=600&q=80',
+    description: 'Naturally tree-ripened Robusta bananas without chemical carbide. Golden yellow skin and high natural potassium.',
+    qualityGrade: 'Grade A (Organic)',
+    rating: 4.8,
+    reviewCount: 18,
+    isFarmerProduce: true,
+    harvestDate: 'Harvested yesterday',
+    reviews: [
+      {
+        id: 'rev-12',
+        consumerName: 'Kavitha N. (Dharwad)',
+        rating: 5,
+        comment: 'No chemical smell at all! Real organic bananas direct from the orchard.',
+        date: '1 day ago',
         verifiedDelivery: true
       }
     ]

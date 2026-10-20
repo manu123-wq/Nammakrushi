@@ -17,6 +17,9 @@ import { CartDrawer } from './components/CartDrawer';
 import { GuideReviewModal } from './components/GuideReviewModal';
 import { AuthScreen } from './components/AuthScreen';
 import { PurchaseHistory } from './components/PurchaseHistory';
+import { AdminDashboard } from './components/AdminDashboard';
+import { CustomerOrderTracker } from './components/CustomerOrderTracker';
+import { FarmerOrderDashboard } from './components/FarmerOrderDashboard';
 import { 
   TabType, 
   InventoryItem, 
@@ -58,8 +61,11 @@ import {
 
 function getTabFromPathname(pathname: string, defaultRole: UserRole): TabType {
   const p = pathname.toLowerCase().replace(/\/$/, '') || '/';
+  if (p === '/admin') return 'admin';
   if (p === '/marketplace' || p === '/market' || p === '/shop') return 'marketplace';
   if (p === '/purchase-history' || p === '/orders' || p === '/history') return 'purchase-history';
+  if (p === '/tracking' || p.startsWith('/tracking') || p === '/order-tracking') return 'order-tracking';
+  if (p === '/farmer/orders' || p === '/farmer-orders') return 'farmer-orders';
   if (p === '/market-rates' || p === '/rates' || p === '/mandi') return 'market-rates';
   if (p === '/dashboard' || p === '/farm') return 'dashboard';
   if (p === '/chatbot' || p === '/chat' || p === '/ai') return 'chatbot';
@@ -67,13 +73,16 @@ function getTabFromPathname(pathname: string, defaultRole: UserRole): TabType {
   if (p === '/predict' || p === '/crop-predictor' || p === '/advisor') return 'predict';
   if (p === '/tasks' || p === '/schedule') return 'tasks';
   if (p === '/consumer-orders') return 'consumer-orders';
-  return defaultRole === 'consumer' ? 'marketplace' : 'dashboard';
+  return defaultRole === 'admin' ? 'admin' : defaultRole === 'consumer' ? 'marketplace' : 'dashboard';
 }
 
 function getPathForTab(tab: TabType): string {
   switch (tab) {
+    case 'admin': return '/admin';
     case 'marketplace': return '/marketplace';
     case 'purchase-history': return '/purchase-history';
+    case 'order-tracking': return '/tracking';
+    case 'farmer-orders': return '/farmer-orders';
     case 'consumer-orders': return '/purchase-history';
     case 'market-rates': return '/market-rates';
     case 'dashboard': return '/dashboard';
@@ -86,11 +95,11 @@ function getPathForTab(tab: TabType): string {
 }
 
 export default function App() {
-  // Role state: 'consumer' vs 'farmer'
+  // Role state: 'consumer', 'farmer', 'admin'
   const [userRole, setUserRole] = useState<UserRole>(() => {
     try {
       const saved = localStorage.getItem('nammakrushi_user_role');
-      if (saved === 'consumer' || saved === 'farmer') return saved;
+      if (saved === 'consumer' || saved === 'farmer' || saved === 'admin') return saved;
     } catch (e) {}
     return 'consumer';
   });
@@ -130,6 +139,11 @@ export default function App() {
   const [products, setProducts] = useState<MarketplaceProduct[]>(INITIAL_PRODUCTS);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [consumerOrders, setConsumerOrders] = useState<ConsumerOrder[]>(INITIAL_CONSUMER_ORDERS);
+  const [selectedTrackOrderId, setSelectedTrackOrderId] = useState<string>('');
+
+  // Farmer Land Verification State
+  const [verificationStatus, setVerificationStatus] = useState<'unverified' | 'pending' | 'approved' | 'rejected'>('approved');
+  const [rejectionReason, setRejectionReason] = useState<string | undefined>(undefined);
 
   // Modals & Drawers
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -158,6 +172,46 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [userRole]);
 
+  // Load latest farmer verification status from SQLite
+  const loadFarmerVerification = async () => {
+    const token = localStorage.getItem('nammakrushi_token');
+    if (!token) return;
+    try {
+      const res = await fetch('/api/farmers/verification/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setVerificationStatus(data.verificationStatus || 'unverified');
+          if (data.verification?.rejection_reason) {
+            setRejectionReason(data.verification.rejection_reason);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Farmer verification check note:', e);
+    }
+  };
+
+  // RBAC route protection guard
+  useEffect(() => {
+    if (userRole === 'admin') {
+      if (currentTab !== 'admin' && currentTab !== 'marketplace' && currentTab !== 'market-rates') {
+        handleNavigateTab('admin');
+      }
+    } else if (userRole === 'consumer') {
+      const consumerAllowed: TabType[] = ['marketplace', 'purchase-history', 'consumer-orders', 'order-tracking', 'market-rates', 'chatbot'];
+      if (!consumerAllowed.includes(currentTab)) {
+        handleNavigateTab('marketplace');
+      }
+    } else if (userRole === 'farmer') {
+      if (currentTab === 'admin') {
+        handleNavigateTab('dashboard');
+      }
+    }
+  }, [userRole, currentTab]);
+
   // Synchronize initial data from SQLite MVC backend
   useEffect(() => {
     async function loadSqliteBackendData() {
@@ -184,6 +238,34 @@ export default function App() {
       } catch (err) {
         console.warn('SQLite orders sync note:', err);
       }
+
+      // Check /api/auth/me to restore session from token
+      const token = localStorage.getItem('nammakrushi_token');
+      if (token) {
+        try {
+          const authRes = await fetch('/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (authRes.ok) {
+            const authData = await authRes.json();
+            if (authData.success && authData.user) {
+              setUserRole(authData.user.role);
+              localStorage.setItem('nammakrushi_user_role', authData.user.role);
+              setUser({
+                uid: authData.user.id,
+                email: authData.user.email,
+                displayName: authData.user.name,
+                role: authData.user.role
+              } as any);
+              if (authData.user.verificationStatus) {
+                setVerificationStatus(authData.user.verificationStatus);
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      loadFarmerVerification();
     }
 
     loadSqliteBackendData();
@@ -352,24 +434,12 @@ export default function App() {
     } catch (err) {
       console.error('Sign-out error:', err);
     }
+    localStorage.removeItem('nammakrushi_token');
+    localStorage.removeItem('nammakrushi_user_role');
     setUser(null);
+    setUserRole('consumer');
+    setVerificationStatus('unverified');
     setShowAuthStage(true);
-  };
-
-  // Role toggle handler
-  const handleToggleUserRole = () => {
-    const nextRole: UserRole = userRole === 'consumer' ? 'farmer' : 'consumer';
-    setUserRole(nextRole);
-    try {
-      localStorage.setItem('nammakrushi_user_role', nextRole);
-    } catch (e) {}
-
-    if (nextRole === 'consumer') {
-      setCurrentTab('marketplace');
-    } else {
-      setCurrentTab('dashboard');
-    }
-    playNotificationChime();
   };
 
   // Sync tasks to state & Firestore
@@ -805,11 +875,20 @@ export default function App() {
             localStorage.setItem('nammakrushi_user_role', role);
           } catch (e) {}
 
-          if (role === 'consumer') {
+          if (role === 'admin') {
+            handleNavigateTab('admin');
+          } else if (role === 'consumer') {
             handleNavigateTab('marketplace');
           } else {
             handleNavigateTab('dashboard');
           }
+
+          if (authenticatedUser.verificationStatus) {
+            setVerificationStatus(authenticatedUser.verificationStatus);
+          } else if (role === 'farmer') {
+            loadFarmerVerification();
+          }
+
           setShowAuthStage(false);
 
           if (authenticatedUser.district || authenticatedUser.farmDistrict) {
@@ -838,7 +917,6 @@ export default function App() {
         onOpenCart={() => setIsCartOpen(true)}
         user={user}
         userRole={userRole}
-        onToggleUserRole={handleToggleUserRole}
         onOpenAuthScreen={() => setShowAuthStage(true)}
         onSignOut={handleSignOut}
       />
@@ -846,29 +924,75 @@ export default function App() {
       {/* Main Tab Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
-        {/* Consumer View: Marketplace (Direct from Farmer) */}
+        {/* Consumer & Farmer View: Marketplace (Direct from Farmer) */}
         {currentTab === 'marketplace' && (
           <Marketplace
             products={products}
             cart={cart}
             onAddToCart={handleAddToCart}
             onOpenCart={() => setIsCartOpen(true)}
-            onAddProduct={(newProd) => {
-              setProducts(prev => [newProd, ...prev]);
-              fetch('/api/products', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newProd)
-              }).catch(e => console.warn('SQLite product sync note:', e));
+            onAddProduct={async (newProd) => {
+              const token = localStorage.getItem('nammakrushi_token');
+              try {
+                const res = await fetch('/api/products', {
+                  method: 'POST',
+                  headers: { 
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                  },
+                  body: JSON.stringify(newProd)
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                  alert(data.error || 'Failed to list produce');
+                  if (data.verificationStatus) {
+                    setVerificationStatus(data.verificationStatus);
+                  }
+                  return;
+                }
+                setProducts(prev => [data.product || newProd, ...prev]);
+                playNotificationChime();
+              } catch (e: any) {
+                alert(e.message || 'Error publishing produce');
+              }
             }}
             onSimulateOrder={(items, total) => handleCheckoutComplete({ items, total, paymentMode: 'UPI' })}
             userRole={userRole}
             onNavigateConsumerOrders={() => handleNavigateTab('purchase-history')}
+            verificationStatus={verificationStatus}
+            rejectionReason={rejectionReason}
+            onVerificationSubmitted={(data) => {
+              setVerificationStatus('pending');
+              loadFarmerVerification();
+            }}
+            farmerName={user?.displayName || 'Manish S.B.'}
+            farmerPhone={(user as any)?.phone || '9876543210'}
+          />
+        )}
+
+        {/* Customer Order Tracking (Flipkart-Style 7-Stage Progress Timeline) */}
+        {currentTab === 'order-tracking' && (
+          <CustomerOrderTracker
+            orderId={selectedTrackOrderId || consumerOrders[0]?.orderId || 'NK-9234'}
+            onBack={() => handleNavigateTab(userRole === 'farmer' ? 'farmer-orders' : 'purchase-history')}
+            onNavigateMarketplace={() => handleNavigateTab('marketplace')}
+          />
+        )}
+
+        {/* Farmer Order Management (New Orders, Accepted, Preparing, Ready for Pickup, In Transit, Completed, Rejected) */}
+        {(currentTab === 'farmer-orders' || (userRole === 'farmer' && currentTab === 'purchase-history')) && (
+          <FarmerOrderDashboard
+            farmerId={user?.id || 'usr-farmer-01'}
+            onNavigateMarketplace={() => handleNavigateTab('marketplace')}
+            onSelectOrderToTrack={(orderId) => {
+              setSelectedTrackOrderId(orderId);
+              handleNavigateTab('order-tracking');
+            }}
           />
         )}
 
         {/* Consumer Purchase History, 1-Click Reorder & Live Order Tracking */}
-        {(currentTab === 'purchase-history' || currentTab === 'consumer-orders') && (
+        {((currentTab === 'purchase-history' || currentTab === 'consumer-orders') && userRole !== 'farmer') && (
           <PurchaseHistory
             orders={consumerOrders}
             products={products}
@@ -877,6 +1001,10 @@ export default function App() {
             onAddReview={handleAddReview}
             onUpdateOrderStatus={handleUpdateOrderStatus}
             onNavigateMarketplace={() => handleNavigateTab('marketplace')}
+            onTrackOrder={(orderId) => {
+              setSelectedTrackOrderId(orderId);
+              handleNavigateTab('order-tracking');
+            }}
           />
         )}
 
@@ -941,6 +1069,14 @@ export default function App() {
             }}
           />
         )}
+
+        {/* Admin Command Center (Government & Bhoomi Audit Desk) */}
+        {currentTab === 'admin' && (
+          <AdminDashboard
+            onNavigateTab={handleNavigateTab}
+            adminUser={user}
+          />
+        )}
       </main>
 
       {/* Notification Center Drawer */}
@@ -962,8 +1098,10 @@ export default function App() {
         cart={cart}
         onUpdateQuantity={handleUpdateCartQuantity}
         onRemoveItem={handleRemoveCartItem}
-        onCheckoutComplete={handleCheckoutComplete}
-        onNavigateTracking={() => handleNavigateTab('purchase-history')}
+        onNavigateTracking={(orderId) => {
+          if (orderId) setSelectedTrackOrderId(orderId);
+          handleNavigateTab('order-tracking');
+        }}
       />
 
       {/* Guide Review & Progress Diary Modal */}

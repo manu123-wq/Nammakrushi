@@ -39,6 +39,7 @@ interface PurchaseHistoryProps {
   onAddReview: (productId: string, rating: number, comment: string, orderId: string) => void;
   onUpdateOrderStatus?: (orderId: string, nextStatus: OrderStatus) => void;
   onNavigateMarketplace: () => void;
+  onTrackOrder?: (orderId: string) => void;
 }
 
 export const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({
@@ -48,7 +49,8 @@ export const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({
   onReorderBasket,
   onAddReview,
   onUpdateOrderStatus,
-  onNavigateMarketplace
+  onNavigateMarketplace,
+  onTrackOrder
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTab, setFilterTab] = useState<'all' | 'transit' | 'delivered' | 'favorites'>('all');
@@ -498,7 +500,7 @@ export const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({
 
                     {/* LIVE TRACK ORDER BUTTON */}
                     <button
-                      onClick={() => setTrackingOrder(order)}
+                      onClick={() => onTrackOrder ? onTrackOrder(order.orderId) : setTrackingOrder(order)}
                       className="flex items-center gap-1.5 px-3 py-2 bg-stone-100 hover:bg-emerald-50 text-stone-800 hover:text-emerald-900 border border-stone-200 hover:border-emerald-300 rounded-xl text-xs font-bold transition cursor-pointer"
                       title="Track live shipment progress & delivery milestones"
                     >

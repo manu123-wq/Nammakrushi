@@ -7,14 +7,31 @@ export type TabType =
   | 'tasks'
   | 'market-rates'
   | 'purchase-history'
-  | 'consumer-orders';
+  | 'consumer-orders'
+  | 'order-tracking'
+  | 'farmer-orders'
+  | 'admin';
 
-export type UserRole = 'farmer' | 'consumer';
+export type UserRole = 'farmer' | 'consumer' | 'admin';
 
-export type OrderStatus = 'Confirmed' | 'Harvested & Packed' | 'Dispatched' | 'Out for Delivery' | 'Delivered';
+export type OrderStatus = 
+  | 'placed' 
+  | 'confirmed' 
+  | 'preparing' 
+  | 'ready_for_pickup' 
+  | 'in_transit' 
+  | 'out_for_delivery' 
+  | 'delivered' 
+  | 'rejected' 
+  | 'cancelled'
+  | 'Confirmed' 
+  | 'Harvested & Packed' 
+  | 'Dispatched' 
+  | 'Out for Delivery' 
+  | 'Delivered';
 
 export interface TrackingMilestone {
-  stage: OrderStatus;
+  stage: string;
   title: string;
   description: string;
   timestamp: string;
@@ -22,28 +39,71 @@ export interface TrackingMilestone {
   current?: boolean;
 }
 
+export interface OrderStatusHistoryItem {
+  id: string;
+  order_id: string;
+  status: string;
+  note: string;
+  updated_by: string;
+  created_at: string;
+}
+
+export interface ShipmentDetails {
+  id?: string;
+  order_id?: string;
+  tracking_id?: string;
+  carrier_name?: string;
+  vehicle_number?: string;
+  driver_name?: string;
+  driver_phone?: string;
+  pickup_timestamp?: string;
+  transit_timestamp?: string;
+  out_for_delivery_timestamp?: string;
+  delivery_timestamp?: string;
+  status?: string;
+  current_location_note?: string;
+  delivery_confirmation_code?: string;
+  notes?: string;
+}
+
 export interface ConsumerOrder {
   orderId: string;
+  parent_order_id?: string | null;
+  farmer_id?: string | null;
+  farmerName?: string;
+  farmerLocation?: string;
+  farmerPhone?: string;
+  isFarmerVerified?: boolean;
   date: string;
   items: CartItem[];
+  subtotal?: number;
+  deliveryCharge?: number;
   total: number;
-  status: OrderStatus;
+  status: string;
+  rejectionReason?: string;
   deliveryMode: 'doorstep' | 'pickup';
   deliveryAddress: string;
   consumerName: string;
   consumerPhone: string;
   paymentMode: string;
+  paymentStatus?: string;
   transactionId?: string;
   gatewayStatus?: 'SUCCESS' | 'PENDING' | 'FAILED';
   driverName?: string;
   driverPhone?: string;
   vehicleNumber?: string;
+  carrierName?: string;
+  trackingNumber?: string;
   estimatedDelivery?: string;
   trackingMilestones?: TrackingMilestone[];
+  statusHistory?: OrderStatusHistoryItem[];
+  shipment?: ShipmentDetails;
   isFavorite?: boolean;
   rated?: boolean;
   rating?: number;
   feedback?: string;
+  createdAt?: string;
+  childOrders?: ConsumerOrder[];
 }
 
 export interface UserProfile {
@@ -111,8 +171,9 @@ export interface ProductReview {
 
 export interface MarketplaceProduct {
   id: string;
+  seller_id?: string;
   title: string;
-  category: 'Grains & Cereals' | 'Pulses' | 'Vegetables' | 'Seeds' | 'Fertilizers' | 'Farm Implements';
+  category: 'Grains & Cereals' | 'Pulses' | 'Vegetables' | 'Fruits' | 'Seeds' | 'Fertilizers' | 'Farm Implements';
   price: number;
   unit: string;
   availableStock: number;

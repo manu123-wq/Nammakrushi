@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShoppingBag, 
   Search, 
@@ -10,20 +10,23 @@ import {
   QrCode, 
   ArrowRight, 
   Check, 
-  Store,
-  Tag,
-  Truck,
-  Phone,
-  ShieldCheck,
-  Sparkles,
-  HelpCircle,
-  Info,
-  Star,
-  X,
-  MessageSquare,
-  UserCheck
+  Store, 
+  Tag, 
+  Truck, 
+  Phone, 
+  ShieldCheck, 
+  Sparkles, 
+  HelpCircle, 
+  Info, 
+  Star, 
+  X, 
+  MessageSquare, 
+  UserCheck,
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 import { MarketplaceProduct, CartItem, UserRole } from '../types';
+import { FarmerVerificationModal } from './FarmerVerificationModal';
 
 interface MarketplaceProps {
   products: MarketplaceProduct[];
@@ -34,6 +37,11 @@ interface MarketplaceProps {
   onSimulateOrder: (items: CartItem[], total: number) => void;
   userRole?: UserRole;
   onNavigateConsumerOrders?: () => void;
+  verificationStatus?: 'unverified' | 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  onVerificationSubmitted?: (data: any) => void;
+  farmerName?: string;
+  farmerPhone?: string;
 }
 
 export const Marketplace: React.FC<MarketplaceProps> = ({
@@ -43,11 +51,41 @@ export const Marketplace: React.FC<MarketplaceProps> = ({
   onOpenCart,
   onAddProduct,
   userRole = 'farmer',
-  onNavigateConsumerOrders
+  onNavigateConsumerOrders,
+  verificationStatus = 'unverified',
+  rejectionReason,
+  onVerificationSubmitted,
+  farmerName,
+  farmerPhone
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [showSellModal, setShowSellModal] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [currentVerifStatus, setCurrentVerifStatus] = useState<'unverified' | 'pending' | 'approved' | 'rejected'>(
+    verificationStatus || 'unverified'
+  );
+  const [currentRejectionReason, setCurrentRejectionReason] = useState<string | undefined>(rejectionReason);
+
+  useEffect(() => {
+    if (verificationStatus) {
+      setCurrentVerifStatus(verificationStatus);
+    }
+  }, [verificationStatus]);
+
+  useEffect(() => {
+    if (rejectionReason !== undefined) {
+      setCurrentRejectionReason(rejectionReason);
+    }
+  }, [rejectionReason]);
+
+  const handleAddProductClick = () => {
+    if (currentVerifStatus !== 'approved') {
+      setShowVerificationModal(true);
+    } else {
+      setShowSellModal(true);
+    }
+  };
   const [viewingReviewsProduct, setViewingReviewsProduct] = useState<MarketplaceProduct | null>(null);
 
   // Selected kg quantities per product for direct purchasing
@@ -71,8 +109,8 @@ export const Marketplace: React.FC<MarketplaceProps> = ({
   const [grade, setGrade] = useState<MarketplaceProduct['qualityGrade']>('Grade A');
 
   const categories = userRole === 'consumer' 
-    ? ['All Produce', 'Vegetables', 'Grains & Cereals', 'Pulses'] 
-    : ['All', 'Vegetables', 'Grains & Cereals', 'Pulses', 'Fertilizers', 'Farm Implements'];
+    ? ['All Produce', 'Vegetables', 'Fruits', 'Grains & Cereals', 'Pulses'] 
+    : ['All', 'Vegetables', 'Fruits', 'Grains & Cereals', 'Pulses', 'Fertilizers', 'Farm Implements'];
 
   const filteredProducts = products.filter(p => {
     // If consumer is logged in, strictly show ONLY products produced by farmers directly!
@@ -167,27 +205,97 @@ export const Marketplace: React.FC<MarketplaceProps> = ({
         </div>
       ) : (
         /* Farmer General Banner */
-        <div className="bg-gradient-to-r from-emerald-900 to-green-800 text-white rounded-2xl p-6 sm:p-8 shadow-sm flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-700/80 text-emerald-200 border border-emerald-500/30">
-              🌾 Raitha Santhe / Direct Farm Produce Marketplace
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-black mt-2">
-              Direct Farm Produce & Supply Marketplace
-            </h1>
-            <p className="text-xs sm:text-sm text-emerald-100 max-w-xl mt-1 leading-relaxed">
-              Eliminating middlemen: Sell freshly harvested crops directly to consumers, mills, and buyers with automated star ratings and escrow payments.
-            </p>
+        <div className="space-y-4">
+          <div className="bg-gradient-to-r from-emerald-900 to-green-800 text-white rounded-2xl p-6 sm:p-8 shadow-sm flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-700/80 text-emerald-200 border border-emerald-500/30">
+                🌾 Raitha Santhe / Direct Farm Produce Marketplace
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-black mt-2">
+                Direct Farm Produce & Supply Marketplace
+              </h1>
+              <p className="text-xs sm:text-sm text-emerald-100 max-w-xl mt-1 leading-relaxed">
+                Eliminating middlemen: Sell freshly harvested crops directly to consumers, mills, and buyers with automated star ratings and escrow payments.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleAddProductClick}
+                className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-md"
+              >
+                <Plus className="w-4 h-4" />
+                <span>List My Produce</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowSellModal(true)}
-              className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-md"
-            >
-              <Plus className="w-4 h-4" />
-              <span>List My Produce</span>
-            </button>
+          {/* Verification Status Banner for Farmers */}
+          <div className={`p-4 rounded-2xl border flex items-center justify-between flex-wrap gap-3 text-xs ${
+            currentVerifStatus === 'approved'
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
+              : currentVerifStatus === 'pending'
+              ? 'bg-amber-50 border-amber-300 text-amber-950'
+              : currentVerifStatus === 'rejected'
+              ? 'bg-rose-50 border-rose-300 text-rose-950'
+              : 'bg-stone-100 border-stone-300 text-stone-800'
+          }`}>
+            <div className="flex items-center gap-2.5">
+              {currentVerifStatus === 'approved' ? (
+                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+              ) : currentVerifStatus === 'pending' ? (
+                <Clock className="w-5 h-5 text-amber-600 shrink-0 animate-pulse" />
+              ) : currentVerifStatus === 'rejected' ? (
+                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+              ) : (
+                <ShieldCheck className="w-5 h-5 text-stone-500 shrink-0" />
+              )}
+              <div>
+                <span className="font-bold block">
+                  {currentVerifStatus === 'approved'
+                    ? '✅ Government Verified Landowner (Bhoomi RTC Approved)'
+                    : currentVerifStatus === 'pending'
+                    ? '⏳ RTC Land Verification Pending Admin Review'
+                    : currentVerifStatus === 'rejected'
+                    ? '⚠️ Land Verification Rejected by Administration'
+                    : '⚠️ Land Record (RTC / Pahani) Verification Required'}
+                </span>
+                <p className="text-[11px] opacity-90 mt-0.5">
+                  {currentVerifStatus === 'approved'
+                    ? 'Your land records are verified by government Bhoomi audit. You have full produce selling privileges.'
+                    : currentVerifStatus === 'pending'
+                    ? 'Your RTC submission is being verified against taluk revenue records. Product listing unlocks upon approval.'
+                    : currentVerifStatus === 'rejected'
+                    ? `Reason: "${currentRejectionReason || 'Document was illegible'}". Click below to view reason and re-submit.`
+                    : 'Karnataka Bhoomi RTC / Pahani audit is required to prevent middleman fraud before adding produce.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {currentVerifStatus !== 'approved' ? (
+                <button
+                  onClick={() => setShowVerificationModal(true)}
+                  className={`px-4 py-2 rounded-xl font-bold transition cursor-pointer shadow-xs ${
+                    currentVerifStatus === 'rejected'
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                      : currentVerifStatus === 'pending'
+                      ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                      : 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                  }`}
+                >
+                  {currentVerifStatus === 'rejected' 
+                    ? 'Review Reason & Re-submit' 
+                    : currentVerifStatus === 'pending' 
+                    ? 'View Submission Status' 
+                    : 'Verify Land Records Now'}
+                </button>
+              ) : (
+                <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[10px] uppercase">
+                  Full Selling Unlocked
+                </span>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -342,6 +450,24 @@ export const Marketplace: React.FC<MarketplaceProps> = ({
                   {prod.description}
                 </p>
 
+                {/* Available Stock Indicator */}
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <span className="text-[11px] text-stone-500 font-medium">Available Stock:</span>
+                  {prod.availableStock <= 0 ? (
+                    <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                      Out of Stock
+                    </span>
+                  ) : prod.availableStock < 20 ? (
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                      ⚡ Only {prod.availableStock} {prod.unit} left
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      ✓ {prod.availableStock.toLocaleString()} {prod.unit} in stock
+                    </span>
+                  )}
+                </div>
+
                 {/* Farmer Details */}
                 <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
                   <div className="flex items-center gap-1.5">
@@ -451,27 +577,42 @@ export const Marketplace: React.FC<MarketplaceProps> = ({
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  onClick={() => onAddToCart(prod, getSelectedKg(prod.id))}
-                  className="flex-1 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border border-stone-200"
-                  title="Add selected kg quantity to shopping cart"
-                >
-                  <ShoppingBag className="w-3.5 h-3.5 text-stone-600" />
-                  <span>Add {getSelectedKg(prod.id)} {prod.unit}</span>
-                </button>
+              {/* Action Buttons: Add to Cart and Buy Now */}
+              <div className="pt-1">
+                {prod.availableStock <= 0 ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full py-2.5 px-3 bg-stone-100 text-stone-400 border border-stone-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-not-allowed"
+                  >
+                    <span>Out of Stock (Harvest in Progress)</span>
+                  </button>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onAddToCart(prod, getSelectedKg(prod.id))}
+                      className="py-2.5 px-3 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border border-stone-200 active:scale-95"
+                      title="Add to Cart"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5 text-stone-600" />
+                      <span>Add to Cart</span>
+                    </button>
 
-                <button
-                  onClick={() => {
-                    onAddToCart(prod, getSelectedKg(prod.id));
-                    onOpenCart();
-                  }}
-                  className="flex-1 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                >
-                  <span>Buy {getSelectedKg(prod.id)} {prod.unit}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onAddToCart(prod, getSelectedKg(prod.id));
+                        onOpenCart();
+                      }}
+                      className="py-2.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                      title="Buy Now (Proceed straight to checkout)"
+                    >
+                      <span>Buy Now</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -708,6 +849,22 @@ export const Marketplace: React.FC<MarketplaceProps> = ({
           </div>
         </div>
       )}
+
+      {/* Farmer Land Verification Modal (RTC/Pahani) */}
+      <FarmerVerificationModal
+        isOpen={showVerificationModal}
+        onClose={() => setShowVerificationModal(false)}
+        verificationStatus={currentVerifStatus}
+        rejectionReason={currentRejectionReason}
+        onVerificationSubmitted={(data) => {
+          setCurrentVerifStatus('pending');
+          if (onVerificationSubmitted) {
+            onVerificationSubmitted(data);
+          }
+        }}
+        farmerName={farmerName}
+        farmerPhone={farmerPhone}
+      />
     </div>
   );
 };

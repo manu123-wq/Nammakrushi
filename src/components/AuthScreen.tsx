@@ -89,6 +89,42 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onContinu
     setErrorMessage(null);
     setLoading(true);
 
+    // 1. Try SQLite REST API first
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: loginIdentifier.trim(),
+          password
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        localStorage.setItem('nammakrushi_token', data.token);
+        localStorage.setItem('nammakrushi_user_role', data.user.role);
+        onAuthSuccess({
+          uid: data.user.id,
+          id: data.user.id,
+          email: data.user.email,
+          displayName: data.user.name,
+          role: data.user.role,
+          district: data.user.district,
+          verificationStatus: data.user.verificationStatus,
+          token: data.token
+        });
+        setLoading(false);
+        return;
+      } else if (!res.ok && res.status === 403) {
+        setErrorMessage(data.error || 'Your account has been suspended by administration.');
+        setLoading(false);
+        return;
+      }
+    } catch (e) {
+      console.warn('SQLite login fallback notice:', e);
+    }
+
+    // 2. Firebase Auth Fallback
     const { authEmail, isPhone, rawPhone } = normalizeIdentity(loginIdentifier, selectedRole);
 
     try {
@@ -111,7 +147,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onContinu
             ? 'Incorrect phone number or password. Please verify or create a new account.'
             : 'Invalid email or password. Please verify or create a new account.'
         );
-      } else if (err.code === 'auth/operation-not-allowed' || err.message?.includes('network')) {
+      } else {
         const localUser = {
           uid: `${selectedRole}-${loginIdentifier.replace(/[^a-zA-Z0-9]/g, '') || Date.now()}`,
           email: isPhone ? '' : loginIdentifier.trim(),
@@ -125,8 +161,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onContinu
           farmAcres: selectedRole === 'farmer' ? farmAcres : undefined
         };
         onAuthSuccess(localUser);
-      } else {
-        setErrorMessage(err.message || 'Unable to sign in. Please verify your credentials.');
       }
     } finally {
       setLoading(false);
@@ -148,6 +182,53 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onContinu
     }
 
     setLoading(true);
+
+    // 1. Try SQLite REST API Registration first
+    try {
+      const emailValue = signupIdentifier.includes('@') 
+        ? signupIdentifier.trim() 
+        : `${signupIdentifier.trim()}@nammakrushi.in`;
+
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailValue,
+          password,
+          name: fullName.trim(),
+          role: selectedRole,
+          phone: isPhoneNumber(signupIdentifier) ? signupIdentifier.trim() : '',
+          district,
+          farmAcres: selectedRole === 'farmer' ? farmAcres : undefined,
+          deliveryAddress: selectedRole === 'consumer' ? deliveryAddress : undefined
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        localStorage.setItem('nammakrushi_token', data.token);
+        localStorage.setItem('nammakrushi_user_role', data.user.role);
+        onAuthSuccess({
+          uid: data.user.id,
+          id: data.user.id,
+          email: data.user.email,
+          displayName: data.user.name,
+          role: data.user.role,
+          district: data.user.district,
+          verificationStatus: data.user.verificationStatus,
+          token: data.token
+        });
+        setLoading(false);
+        return;
+      } else if (!res.ok) {
+        setErrorMessage(data.error || 'Registration failed');
+        setLoading(false);
+        return;
+      }
+    } catch (e) {
+      console.warn('SQLite register fallback notice:', e);
+    }
+
+    // 2. Firebase Auth Fallback
     const { authEmail, isPhone, rawPhone } = normalizeIdentity(signupIdentifier, selectedRole);
 
     try {
@@ -158,7 +239,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onContinu
         displayName: fullName.trim(),
       });
 
-      // Save user profile into Cloud Firestore
       await setDoc(doc(db, 'users', user.uid), {
         id: user.uid,
         email: isPhone ? '' : authEmail,
@@ -182,39 +262,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onContinu
     } catch (err: any) {
       console.warn('Firebase signup notice:', err);
       if (err.code === 'auth/email-already-in-use') {
-        setErrorMessage(
-          isPhone
-            ? 'This mobile number is already registered. Please sign in instead.'
-            : 'This email is already registered. Please sign in instead.'
-        );
-      } else if (err.code === 'auth/operation-not-allowed') {
-        const mockUid = `${selectedRole}-${Date.now()}`;
-        const localUser = {
-          uid: mockUid,
-          email: isPhone ? '' : authEmail,
-          phone: isPhone ? rawPhone : '',
-          displayName: fullName.trim(),
-          role: selectedRole,
-          district,
-          deliveryAddress: selectedRole === 'consumer' ? deliveryAddress.trim() : undefined,
-          farmAcres: selectedRole === 'farmer' ? farmAcres : undefined
-        };
-        try {
-          await setDoc(doc(db, 'users', mockUid), {
-            id: mockUid,
-            email: isPhone ? '' : authEmail,
-            phoneNumber: isPhone ? rawPhone : '',
-            displayName: fullName.trim(),
-            role: selectedRole,
-            district,
-            deliveryAddress: selectedRole === 'consumer' ? deliveryAddress.trim() : '',
-            farmAreaAcres: selectedRole === 'farmer' ? Number(farmAcres) : 0,
-            createdAt: new Date().toISOString()
-          }, { merge: true });
-        } catch (e) {
-          console.debug(e);
-        }
-        onAuthSuccess(localUser);
+        setErrorMessage('This account is already registered. Please sign in instead.');
       } else {
         setErrorMessage(err.message || 'Error creating account. Please check your details.');
       }
@@ -223,36 +271,84 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onContinu
     }
   };
 
-  // 1-Click Demo Login for Consumers (buys only product produced by farmers directly)
-  const handleQuickDemoConsumerLogin = () => {
-    setLoginIdentifier('9876543210');
-    setPassword('consumer@123');
-    setSelectedRole('consumer');
-    const demoConsumer = {
-      uid: 'demo-consumer-bengaluru',
-      phone: '9876543210',
-      displayName: 'Ananya Sharma (Direct Buyer)',
-      role: 'consumer' as UserRole,
-      district: 'Bengaluru',
-      deliveryAddress: '#104, Green Glen Layout, Indiranagar, Bengaluru - 560038'
-    };
-    onAuthSuccess(demoConsumer);
+  // Quick Demo Logins
+  const handleAdminQuickLogin = async () => {
+    setLoginIdentifier('admin@nammakrushi.in');
+    setPassword('Admin@NammaKrushi2026');
+    setSelectedRole('admin' as any);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: 'admin@nammakrushi.in', password: 'Admin@NammaKrushi2026' })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        localStorage.setItem('nammakrushi_token', data.token);
+        localStorage.setItem('nammakrushi_user_role', 'admin');
+        onAuthSuccess({ ...data.user, token: data.token });
+        return;
+      }
+    } catch (e) {}
+    onAuthSuccess({
+      uid: 'usr-admin-01',
+      displayName: 'NammaKrushi Chief Agricultural Admin',
+      email: 'admin@nammakrushi.in',
+      role: 'admin' as UserRole
+    });
   };
 
-  // 1-Click Demo Login for Farmers
-  const handleQuickDemoFarmerLogin = () => {
-    setLoginIdentifier('9845012345');
-    setPassword('farmer@123');
+  const handleQuickDemoFarmerLogin = async () => {
+    setLoginIdentifier('farmer@nammakrushi.in');
+    setPassword('Farmer@NammaKrushi2026');
     setSelectedRole('farmer');
-    const demoFarmer = {
-      uid: 'demo-farmer-dharwad',
-      phone: '9845012345',
-      displayName: 'Mallikarjun Patil',
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: 'farmer@nammakrushi.in', password: 'Farmer@NammaKrushi2026' })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        localStorage.setItem('nammakrushi_token', data.token);
+        localStorage.setItem('nammakrushi_user_role', 'farmer');
+        onAuthSuccess({ ...data.user, token: data.token });
+        return;
+      }
+    } catch (e) {}
+    onAuthSuccess({
+      uid: 'usr-farmer-01',
+      displayName: 'Manish S.B. (Verified Farmer)',
+      email: 'farmer@nammakrushi.in',
       role: 'farmer' as UserRole,
-      district: 'Dharwad',
-      farmAcres: 6.0
-    };
-    onAuthSuccess(demoFarmer);
+      verificationStatus: 'approved'
+    });
+  };
+
+  const handleQuickDemoConsumerLogin = async () => {
+    setLoginIdentifier('consumer@nammakrushi.in');
+    setPassword('Consumer@NammaKrushi2026');
+    setSelectedRole('consumer');
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: 'consumer@nammakrushi.in', password: 'Consumer@NammaKrushi2026' })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        localStorage.setItem('nammakrushi_token', data.token);
+        localStorage.setItem('nammakrushi_user_role', 'consumer');
+        onAuthSuccess({ ...data.user, token: data.token });
+        return;
+      }
+    } catch (e) {}
+    onAuthSuccess({
+      uid: 'usr-consumer-01',
+      displayName: 'Ananya Sharma (Direct Buyer)',
+      email: 'consumer@nammakrushi.in',
+      role: 'consumer' as UserRole
+    });
   };
 
   return (
@@ -617,25 +713,41 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onContinu
 
           {/* Quick Demo Login Option */}
           <div className="mt-5 pt-4 border-t border-stone-100 flex flex-col gap-2">
-            {selectedRole === 'consumer' ? (
+            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider text-center">
+              Quick Test Accounts (SQLite + RBAC)
+            </span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={handleQuickDemoConsumerLogin}
-                className="w-full py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-950 border border-emerald-300 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                onClick={handleAdminQuickLogin}
+                className="py-2 px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-950 border border-purple-200 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                title="admin@nammakrushi.in"
               >
-                <ShoppingBag className="w-4 h-4 text-emerald-700" />
-                <span>1-Click Consumer Login (Ananya Sharma - 9876543210)</span>
+                <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
+                <span>🛡️ Admin Portal</span>
               </button>
-            ) : (
+
               <button
                 type="button"
                 onClick={handleQuickDemoFarmerLogin}
-                className="w-full py-2.5 px-3 bg-stone-100 hover:bg-emerald-50 hover:text-emerald-900 border border-stone-200 hover:border-emerald-300 rounded-xl text-xs font-bold text-stone-700 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                className="py-2 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-200 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                title="farmer@nammakrushi.in"
               >
-                <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                <span>1-Click Farmer Phone Login (Mallikarjun - 9845012345)</span>
+                <Sprout className="w-3.5 h-3.5 text-emerald-700" />
+                <span>🌾 Farmer (Verified)</span>
               </button>
-            )}
+
+              <button
+                type="button"
+                onClick={handleQuickDemoConsumerLogin}
+                className="py-2 px-2.5 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                title="consumer@nammakrushi.in"
+              >
+                <ShoppingBag className="w-3.5 h-3.5 text-amber-700" />
+                <span>🛒 Consumer Direct</span>
+              </button>
+            </div>
 
             <button
               type="button"

@@ -94,17 +94,6 @@ export const TaskTracker: React.FC<TaskTrackerProps> = ({
     setShowAddModal(false);
   };
 
-  const handleTriggerAllDueReminders = () => {
-    const dueTasks = tasks.filter(t => t.status === 'Pending' && t.dueDate <= today);
-    if (dueTasks.length > 0) {
-      dueTasks.forEach(task => onDispatchTaskAlert(task));
-      playNotificationChime();
-      alert(`✅ Sent active reminders for ${dueTasks.length} task(s) scheduled for today or overdue!`);
-    } else {
-      alert('No pending tasks due today.');
-    }
-  };
-
   const filteredTasks = tasks.filter(t => {
     if (filter === 'All') return true;
     return t.status === filter;
@@ -141,14 +130,10 @@ export const TaskTracker: React.FC<TaskTrackerProps> = ({
             <span>Export CSV</span>
           </button>
 
-          <button
-            onClick={handleTriggerAllDueReminders}
-            className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer"
-            title="Scan and send notifications for tasks due today"
-          >
-            <Send className="w-4 h-4 text-amber-700" />
-            <span>Send Reminders ({dueTodayCount})</span>
-          </button>
+          <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-900 border border-emerald-300 px-3 py-2 rounded-xl text-xs font-bold shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Auto-Alerts Active ({dueTodayCount} due today)</span>
+          </div>
 
           <button
             onClick={() => setShowAddModal(true)}

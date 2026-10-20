@@ -1,6 +1,15 @@
 import { GoogleGenAI } from '@google/genai';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { handleMvcRoutes } from './routes/index.ts';
+import { initTaskScheduler } from './services/scheduler.ts';
+
+let schedulerInitialized = false;
+export function ensureScheduler() {
+  if (!schedulerInitialized) {
+    schedulerInitialized = true;
+    initTaskScheduler();
+  }
+}
 
 // Initialize the Google Gen AI client with environment variable GEMINI_API_KEY
 const ai = new GoogleGenAI({});
@@ -23,6 +32,7 @@ async function readRequestBody(req: IncomingMessage): Promise<string> {
 }
 
 export async function handleApiRequest(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
+  ensureScheduler();
   // Dispatch to MVC SQLite REST API routes (Products, Orders, Traceability QR, Market Rates)
   const mvcHandled = await handleMvcRoutes(req, res);
   if (mvcHandled) return true;
@@ -515,6 +525,72 @@ Return ONLY a strict JSON object with this exact structure:
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, rates: mandiRates, lastUpdated: new Date().toLocaleTimeString('en-IN') }));
     return true;
+  }
+
+  // 7. Soil Health Report with Gemini AI (analyses recent moisture data, weather, crop, and recommends fertilizers / amendments)
+  if (url.startsWith('/api/soil_health_report') && req.method === 'POST') {
+    try {
+      const rawBody = await readRequestBody(req);
+      const data = JSON.parse(rawBody || '{}');
+      const { sectorName, crop, moistureLevel, soilType, weatherInfo, district } = data;
+
+      const prompt = `You are a Senior Soil Chemist and Agronomy Scientist at UAS Dharwad, Karnataka.
+Analyze this farm sector's recent soil moisture data and provide a detailed Soil Health & Fertilizer Amendment Report:
+- Field Sector: ${sectorName || 'Main Field'}
+- Crop: ${crop || 'Bt Cotton'}
+- Current Soil Moisture: ${moistureLevel || 45}%
+- Soil Type: ${soilType || 'Deep Black Cotton Soil'}
+- Micro-Climate / Weather: ${weatherInfo || '28°C, 65% RH, Kharif Season'}
+- Region: ${district || 'Dharwad'}, Karnataka
+
+Generate a clear, professional Soil Health Report containing:
+1. Soil Moisture Status & Soil Aeration Evaluation (interpretation of ${moistureLevel}% in ${soilType})
+2. Primary Nutrient (NPK) Fertilizer Dosage & Timing (Urea, DAP/SSP, MOP, Fertigation schedule)
+3. Secondary & Micronutrient Recommendations (Zinc Sulphate, Boron, Gypsum/Lime if needed for pH correction)
+4. Organic Carbon & Soil Biology Amendments (Compost, Jeevamrutha, Trichoderma, Green manuring)
+5. Actionable Water & Nutrient Efficiency Tips
+
+Format with clean Markdown headers, bullet points, and exact dosages per acre.`;
+
+      let reportText = '';
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: prompt,
+        });
+        reportText = response.text || '';
+      } catch (err: any) {
+        console.warn('Gemini Soil Health Report generation error, using fallback:', err?.message);
+        reportText = `### 🧪 Comprehensive Soil Health & Nutrient Advisory (${sectorName || 'Field Sector'})
+**Crop:** ${crop || 'Bt Cotton'} | **Moisture:** ${moistureLevel || 45}% | **Soil Type:** ${soilType || 'Deep Black Cotton'}
+
+#### 1. Moisture & Aeration Status
+- At **${moistureLevel || 45}%** volumetric moisture, the root zone is in ${Number(moistureLevel || 45) < 40 ? 'moisture deficit (stress risk)' : Number(moistureLevel || 45) > 75 ? 'saturation (drainage advised)' : 'optimal water potential'}.
+- Black cotton soil requires controlled drip intervals to prevent surface cracking while maintaining aeration.
+
+#### 2. Recommended N-P-K Fertilizer Schedule
+- **Nitrogen (N):** Apply 45 kg Urea/acre in 3 split doses (at 25, 50, and 75 DAS) via drip fertigation or band placement.
+- **Phosphorus (P):** 50 kg DAP or 150 kg Single Super Phosphate (SSP) as basal application incorporated 5cm below seed furrow.
+- **Potassium (K):** 30 kg Muriate of Potash (MOP)/acre to enhance drought resistance and fiber quality.
+
+#### 3. Micronutrients & Soil Amendments
+- **Zinc Deficiency Correction:** Apply 10 kg Zinc Sulphate (ZnSO4 21%) per acre once per year.
+- **Boron Spray:** Foliar spray of Solubor (Borax 20%) @ 1.5 g/liter at flowering initiation.
+- **Gypsum:** Apply 200 kg/acre if soil sodium levels are elevated to loosen heavy clay aggregates.
+
+#### 4. Organic Carbon & Biological Health
+- Incorporate 2.5 tonnes of well-decomposed Farmyard Manure (FYM) enriched with *Trichoderma harzianum* (2 kg/tonne).
+- Drench with liquid Jeevamrutha (200 L/acre) every 21 days through the drip irrigation system to multiply native mycorrhizae.`;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, report: reportText, timestamp: new Date().toISOString() }));
+      return true;
+    } catch (err: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+      return true;
+    }
   }
 
   return false;

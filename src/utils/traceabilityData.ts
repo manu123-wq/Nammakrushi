@@ -1,4 +1,4 @@
-import { FarmTraceability, MarketplaceProduct } from '../types';
+import { FarmTraceability, MarketplaceProduct } from '../types/index.ts';
 
 export const INITIAL_TRACEABILITY_DATA: Record<string, FarmTraceability> = {
   'prod-1': {

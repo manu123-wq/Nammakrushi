@@ -24,9 +24,8 @@ interface HeaderProps {
   onOpenNotifications: () => void;
   cartCount: number;
   onOpenCart: () => void;
-  user: FirebaseUser | null;
+  user: any;
   userRole?: UserRole;
-  onToggleUserRole?: () => void;
   onOpenAuthScreen: () => void;
   onSignOut: () => void;
 }
@@ -54,7 +53,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCart,
   user,
   userRole = 'farmer',
-  onToggleUserRole,
   onOpenAuthScreen,
   onSignOut,
 }) => {
@@ -62,23 +60,30 @@ export const Header: React.FC<HeaderProps> = ({
 
   const consumerTabs = [
     { id: 'marketplace', label: '🛒 Buy Farmer Produce' },
-    { id: 'purchase-history', label: '📜 Purchase History & Tracking' },
-    { id: 'chatbot', label: '🤖 Farm AI Assistant' },
+    { id: 'purchase-history', label: '📜 My Orders' },
+    { id: 'order-tracking', label: '🚚 Order Tracking' },
     { id: 'market-rates', label: '📈 APMC Mandi Rates' },
+    { id: 'chatbot', label: '🤖 Farm AI Assistant' },
   ];
 
   const farmerTabs = [
     { id: 'dashboard', label: '🌾 Farm Dashboard' },
-    { id: 'chatbot', label: '🤖 AI Chatbot (Gemini)' },
+    { id: 'farmer-orders', label: '📦 Order Management' },
+    { id: 'marketplace', label: '🛒 Produce Marketplace' },
     { id: 'inventory', label: '📦 Smart Inventory' },
-    { id: 'predict', label: '🧪 AI Crop Predictor' },
-    { id: 'marketplace', label: '🛒 Farmer Marketplace' },
     { id: 'tasks', label: '📋 Task Schedule' },
     { id: 'market-rates', label: '📈 APMC Mandi Rates' },
-    { id: 'purchase-history', label: '📜 Buyer Orders & Tracking' },
+    { id: 'predict', label: '🧪 AI Crop Predictor' },
+    { id: 'chatbot', label: '🤖 AI Chatbot' },
   ];
 
-  const activeTabs = userRole === 'consumer' ? consumerTabs : farmerTabs;
+  const adminTabs = [
+    { id: 'admin', label: '🛡️ Admin Command Center' },
+    { id: 'marketplace', label: '🛒 Produce Catalog' },
+    { id: 'market-rates', label: '📈 APMC Mandi Rates' },
+  ];
+
+  const activeTabs = userRole === 'admin' ? adminTabs : userRole === 'consumer' ? consumerTabs : farmerTabs;
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200 shadow-xs">
@@ -89,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Logo & Brand */}
           <div 
             className="flex items-center gap-3 cursor-pointer" 
-            onClick={() => onTabChange(userRole === 'consumer' ? 'marketplace' : 'dashboard')}
+            onClick={() => onTabChange(userRole === 'admin' ? 'admin' : userRole === 'consumer' ? 'marketplace' : 'dashboard')}
           >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-green-700 flex items-center justify-center text-white shadow-md shadow-emerald-700/20">
               <Sprout className="w-6 h-6" />
@@ -101,16 +106,20 @@ export const Header: React.FC<HeaderProps> = ({
                   ನಮ್ಮ ಕೃಷಿ
                 </span>
                 {/* Active Role Tag */}
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                  userRole === 'consumer' 
+                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                  userRole === 'admin'
+                    ? 'bg-purple-100 text-purple-900 border-purple-300'
+                    : userRole === 'consumer' 
                     ? 'bg-amber-100 text-amber-900 border-amber-300' 
                     : 'bg-emerald-100 text-emerald-900 border-emerald-300'
                 }`}>
-                  {userRole === 'consumer' ? '🛒 Consumer Direct' : '🌾 Farmer'}
+                  {userRole === 'admin' ? '🛡️ Administrator' : userRole === 'consumer' ? '🛒 Consumer Direct' : '🌾 Farmer'}
                 </span>
               </div>
               <p className="text-[11px] font-medium text-stone-500 tracking-wide">
-                {userRole === 'consumer'
+                {userRole === 'admin'
+                  ? 'Government & Platform Administrative Gateway'
+                  : userRole === 'consumer'
                   ? 'Direct Farm-to-Consumer Produce Store'
                   : 'AI Farm Management & Direct Marketplace'}
               </p>
@@ -146,16 +155,6 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right Action Icons & Firebase Auth */}
           <div className="flex items-center gap-2.5">
-            {/* Switch Role Quick Button */}
-            {onToggleUserRole && (
-              <button
-                onClick={onToggleUserRole}
-                className="hidden md:flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border border-stone-200 hover:border-emerald-500 bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-emerald-900 transition cursor-pointer"
-                title={userRole === 'consumer' ? 'Switch to Farmer View' : 'Switch to Consumer View'}
-              >
-                <span>{userRole === 'consumer' ? '🌾 Farmer View' : '🛒 Consumer Mode'}</span>
-              </button>
-            )}
 
             {/* Notifications Button with active badge */}
             <button
